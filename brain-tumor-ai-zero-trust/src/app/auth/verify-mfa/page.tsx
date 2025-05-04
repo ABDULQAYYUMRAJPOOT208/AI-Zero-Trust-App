@@ -1,16 +1,24 @@
+'use client';
 import React, { useState } from 'react';
-import { useRouter } from 'next/router';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 
 const VerifyMfa = () => {
   const router = useRouter();
   const [token, setToken] = useState('');
   const [error, setError] = useState('');
-
+  const searchParams = useSearchParams();
+  const tempToken = searchParams.get('token');
+  const { data: session, status } = useSession();
+  
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    const { token } = e.target as any;
+    const userEmail = session?.user?.email;
 
-    const tempToken = router.query.token as string;
+    if (!userEmail) {
+      setError('User email not found in session.');
+      return;
+    }
 
     try {
       const response = await fetch('/api/verify-mfa', {
@@ -18,7 +26,7 @@ const VerifyMfa = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ token: token.value, tempToken }),
+        body: JSON.stringify({ token, tempToken, email: userEmail }),
       });
 
       const data = await response.json();
@@ -31,6 +39,8 @@ const VerifyMfa = () => {
       setError('Error verifying MFA');
     }
   };
+  
+  if (status === 'loading') return <div>Loading...</div>;
 
   return (
     <div className="container">

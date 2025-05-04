@@ -25,25 +25,35 @@ export const handler = NextAuth({
         token: { label: "MFA Token", type: "text", optional: true },
       },
       async authorize(credentials: any) {
-        console.log("Inside the [...nextauth] \n Authorizing with credentials:", credentials);
-        
         await connectDB();
         const user = await User.findOne({ email: credentials.email });
-        if (!user) throw new Error("No user found");
+        if (!user) {
+          console.log("User not found");
+          return null;
+        }
 
         const isValid = await bcrypt.compare(credentials.password, user.password);
-        if (!isValid) throw new Error("Invalid password");
-        console.log("Password is valid, now checking MFA");
+        if (!isValid) {
+          console.log("Invalid password");
+          return null;
+        }
+
+        if (user.mfaEnabled && !credentials.token) {
+          console.log("MFA token required");
+          return null;
+        }
+
         if (user.mfaEnabled) {
-          console.log("MFA is enabled, checking token");
-          if (!credentials.token) throw new Error("MFA token is required");
           const tokenValidates = speakeasy.totp.verify({
             secret: user.mfaSecret,
             encoding: "base32",
             token: credentials.token,
-            window:1,
+            window: 1,
           });
-          if (!tokenValidates) throw new Error("Invalid MFA token");
+          if (!tokenValidates) {
+            console.log("Invalid MFA token");
+            return null;
+          }
         }
 
         return {
@@ -60,7 +70,7 @@ export const handler = NextAuth({
   },
   events: {
     async signIn({ user }) {
-      console.log("User signed in: Now writing in logsCollection in database: ", user);
+      console.log("User signed in: Logging event in database");
       await logsCollection.insertOne({
         event: "signIn",
         email: user.email,
@@ -68,8 +78,7 @@ export const handler = NextAuth({
       });
     },
     async signOut({ token }) {
-      console.log("User signed Out: Now writing in logsCollection in database: ", token);
-
+      console.log("User signed out: Logging event in database");
       await logsCollection.insertOne({
         event: "signOut",
         email: token.email,
@@ -79,25 +88,11 @@ export const handler = NextAuth({
   },
   session: {
     strategy: "jwt",
-    maxAge: 60 * 30,
+    maxAge: 60 * 30, // 30 minutes
   },
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
-    async signIn({ user }: any) {
-      const dbUser = await User.findOne({ email: user.email });
-      if (!dbUser) {
-        console.log("User not found in database");
-        return false; // User not found
-      }
-      console.log("User found in database: Now redirecting to verify mfa if enabled", dbUser);
-      if (dbUser?.mfaEnabled) {
-        console.log("MFA is enabled for this user");
-        return "/auth/verify-mfa"; // Redirect to MFA page
-      }
-      return true;
-    },
     async jwt({ token, user }) {
-      
       if (user) {
         token.user = {
           id: user.id,
@@ -105,17 +100,22 @@ export const handler = NextAuth({
           role: user.role,
         };
       }
-      console.log("JWT callback: ", token);
       return token;
     },
     async session({ session, token }) {
-      console.log("session callback:", session, token);
-      
       if (token?.user) {
         session.user = token.user;
       }
-      console.log("session callback:", session, token);
       return session;
+    },
+    async redirect({ url, baseUrl }) {
+      if (url.startsWith("/auth/verify-mfa")) {
+        return `${baseUrl}/auth/verify-mfa`;
+      }
+      if (url.startsWith(baseUrl)) {
+        return url;
+      }
+      return baseUrl;
     },
   },
 });

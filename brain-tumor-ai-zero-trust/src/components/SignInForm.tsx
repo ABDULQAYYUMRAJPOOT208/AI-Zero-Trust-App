@@ -1,5 +1,4 @@
-"use client";
-
+'use client'
 import React from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
@@ -15,29 +14,36 @@ const AuthForm = () => {
     const token = form.token.value; // MFA token
 
     try {
-      console.log(
-        "Sending data to backend sign-in like next-auth file: ",
-        email,
-        password
-      );
-      // Call the signIn function from next-auth
-      debugger;
       const res = await signIn("credentials", {
         email,
         password,
-        token, // Send MFA code here
+        token,
         redirect: false,
       });
 
-      if (res?.ok) {
-        alert("Signed in successfully");
-        router.push("/dashboard");
+      if (!res?.ok) {
+        if (res?.url) {
+          // Redirect to MFA page if MFA is required
+          router.push(res.url); 
+        } else {
+          alert("Invalid credentials or user not found");
+        }
       } else {
-        alert("Invalid credentials or user not found");
+        router.push("/dashboard"); // Redirect to dashboard if sign-in successful
       }
     } catch (error) {
       console.error("Sign-in error", error);
       alert("Something went wrong");
+    }
+  };
+
+
+  const isValidUrl = (url: string) => {
+    try {
+      new URL(url);
+      return true;
+    } catch (e) {
+      return false;
     }
   };
 

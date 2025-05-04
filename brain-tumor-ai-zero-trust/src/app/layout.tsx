@@ -1,5 +1,7 @@
+// app/layout.tsx
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import ClientWrapper from "./Clientwrapper"; // Import the ClientWrapper
 import "./globals.css";
 
 const geistSans = Geist({
@@ -27,7 +29,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        {/* Wrap the children with ClientWrapper */}
+        <ClientWrapper>{children}</ClientWrapper>
       </body>
     </html>
   );
