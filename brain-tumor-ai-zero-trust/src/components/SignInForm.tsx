@@ -2,6 +2,7 @@
 import React from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 const AuthForm = () => {
   const router = useRouter();
@@ -79,6 +80,9 @@ const AuthForm = () => {
 
         <span className="forgot-password">
           <a href="#">Forgot Password?</a>
+        </span>
+        <span className="forgot-password">
+          <Link href="/reset-mfa">Reset MFA Setup</Link>
         </span>
         <input className="login-button" type="submit" value="Sign In" />
       </form>
